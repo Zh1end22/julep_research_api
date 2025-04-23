@@ -13,16 +13,24 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Configure logging to output to stdout for Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
+
+# Get environment variables
 API_KEY = os.getenv("JULEP_API_KEY")
 ENVIRONMENT = os.getenv("JULEP_ENVIRONMENT", "production")
-PORT = int(os.getenv("PORT", 5000))  # Railway will set PORT environment variable
+PORT = int(os.getenv("PORT", 5000))
 
 if not API_KEY:
+    logger.error("Missing JULEP_API_KEY in environment variables")
     raise EnvironmentError("Missing JULEP_API_KEY in environment variables.")
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger.info(f"Starting application on port {PORT}")
 
 # -------------------------------
 # Julep Client & Agent Setup with Persistence
@@ -53,10 +61,12 @@ def save_agent_id(agent_id):
 
 # Initialize Julep client and agent
 try:
+    logger.info("Initializing Julep client...")
     client = Julep(api_key=API_KEY, environment=ENVIRONMENT)
     AGENT_ID = load_agent_id()
 
     if not AGENT_ID:
+        logger.info("Creating new agent...")
         # Create a new agent if none exists
         agent = client.agents.create(
             name="Research Assistant",
@@ -78,6 +88,11 @@ except Exception as e:
 # -------------------------------
 
 app = Flask(__name__)
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({"status": "healthy", "port": PORT}), 200
 
 @app.route("/research", methods=["POST"])
 def research():
@@ -141,4 +156,5 @@ def research():
         logger.exception("Unexpected error occurred during /research")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
-# No app.run() block - Gunicorn will handle running the app in production
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=PORT)
