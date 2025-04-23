@@ -2,8 +2,8 @@
 # https://hub.docker.com/_/python
 FROM python:3.10-slim
 
-# Run in unbuffered mode
-ENV PYTHONUNBUFFERED=1 
+# Run in unbuffered mode to ensure logs are output correctly
+ENV PYTHONUNBUFFERED=1
 
 # Create and change to the app directory
 WORKDIR /app
@@ -14,8 +14,8 @@ COPY . ./
 # Install project dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH only (avoid overriding Railway env vars)
+# Set PYTHONPATH to help Python find your modules
 ENV PYTHONPATH=/app
 
-# Run the web service on container startup, using Railway's PORT variable
-CMD ["/bin/sh", "-c", "exec gunicorn --bind 0.0.0.0:$PORT app:app"]v
+# Run the web service on container startup
+CMD exec gunicorn --bind 0.0.0.0:$PORT app:app
