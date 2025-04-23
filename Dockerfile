@@ -11,7 +11,6 @@ WORKDIR /app
 # Copy local code to the container image
 COPY . ./
 
-ENV JULEP_API_KEY=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTA2MjI0NTYsImlhdCI6MTc0NTQzODQ1Niwic3ViIjoiMTZhMTM5ZDItNDA4NC01NWY4LThkMWMtZWVhNzViYTRjMGRhIn0.fxixVJegKKDnsPS69cvVhW8i0ov9C0qUD8X-oMzhAutyaXYYfeLzuLMHdaPc3xwE4fm17AzpF5qqghlhvQpqMQ
 
 # Install project dependencies
 RUN pip install --no-cache-dir -r requirements.txt
