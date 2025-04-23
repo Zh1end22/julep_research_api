@@ -14,5 +14,8 @@ COPY . ./
 # Install project dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Set environment variables
+ENV PYTHONPATH=/app
+
 # Run the web service on container startup.
-CMD ["gunicorn", "app:app"] 
+CMD ["/bin/sh", "-c", "exec gunicorn --bind 0.0.0.0:$PORT app:app"] 
