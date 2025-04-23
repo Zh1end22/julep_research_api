@@ -2,10 +2,10 @@ import os
 import json
 import logging
 import time
-from flask import Flask, request, jsonify
+import sys
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from julep import Julep
 from dotenv import load_dotenv
-import httpx  # For adding timeout to Julep API calls
 
 # -------------------------------
 # Environment Setup
@@ -18,17 +18,23 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
 
 # Get environment variables
 API_KEY = os.getenv("JULEP_API_KEY")
 ENVIRONMENT = os.getenv("JULEP_ENVIRONMENT", "production")
+PORT = os.getenv("PORT", "5000")
+
+logger.info(f"Environment: {ENVIRONMENT}")
+logger.info(f"Port: {PORT}")
 
 if not API_KEY:
     logger.error("Missing JULEP_API_KEY in environment variables")
     raise EnvironmentError("Missing JULEP_API_KEY in environment variables.")
+
+logger.info("Starting application...")
 
 # -------------------------------
 # Julep Client & Agent Setup with Persistence
@@ -57,14 +63,15 @@ def save_agent_id(agent_id):
         logger.error(f"Failed to save agent ID to {AGENT_FILE}: {e}")
         raise
 
-# Initialize Julep client with timeout
+# Initialize Julep client and agent
 try:
     logger.info("Initializing Julep client...")
-    client = Julep(api_key=API_KEY, environment=ENVIRONMENT, http_client=httpx.Client(timeout=30.0))
+    client = Julep(api_key=API_KEY, environment=ENVIRONMENT)
     AGENT_ID = load_agent_id()
 
     if not AGENT_ID:
         logger.info("Creating new agent...")
+        # Create a new agent if none exists
         agent = client.agents.create(
             name="Research Assistant",
             model="claude-3.5-haiku",
@@ -84,27 +91,24 @@ except Exception as e:
 # Flask App Setup
 # -------------------------------
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
+
+@app.route("/")
+def index():
+    """Serve the main page."""
+    return render_template('index.html')
 
 @app.route("/health", methods=["GET"])
 def health_check():
-    """Health check endpoint to verify the app is running."""
-    return jsonify({"status": "healthy", "agent_id": AGENT_ID}), 200
+    """Health check endpoint."""
+    return jsonify({"status": "healthy", "port": PORT}), 200
 
 @app.route("/research", methods=["POST"])
 def research():
     """Handle research requests using the Julep agent."""
     try:
-        # Log the request immediately
-        logger.info(f"Received request to /research: {request.get_data(as_text=True)}")
-
-        # Parse request data
-        try:
-            data = request.get_json(force=True)
-        except Exception as e:
-            logger.error(f"Failed to parse request JSON: {e}")
-            return jsonify({"error": "Invalid JSON in request body", "details": str(e)}), 400
-
+        # Input validation
+        data = request.get_json(force=True)
         topic = data.get("topic")
         format_type = data.get("format")
 
@@ -112,7 +116,7 @@ def research():
             logger.warning("Missing 'topic' or 'format' in request body")
             return jsonify({"error": "Missing 'topic' or 'format' in request body."}), 400
 
-        logger.info(f"Processing research request - Topic: {topic}, Format: {format_type}")
+        logger.info(f"Received research request - Topic: {topic}, Format: {format_type}")
 
         # Define task
         task_definition = {
@@ -129,53 +133,41 @@ def research():
         }
 
         # Create and run the task
-        try:
-            task = client.tasks.create(agent_id=AGENT_ID, **task_definition)
-            logger.info(f"Created task with ID: {task.id}")
-        except Exception as e:
-            logger.error(f"Failed to create task: {e}")
-            return jsonify({"error": "Failed to create task", "details": str(e)}), 500
-
-        try:
-            execution = client.executions.create(
-                task_id=task.id,
-                input={"topic": topic, "format": format_type}
-            )
-            logger.info(f"Started execution with ID: {execution.id}")
-        except Exception as e:
-            logger.error(f"Failed to start execution: {e}")
-            return jsonify({"error": "Failed to start execution", "details": str(e)}), 500
+        task = client.tasks.create(agent_id=AGENT_ID, **task_definition)
+        execution = client.executions.create(
+            task_id=task.id,
+            input={"topic": topic, "format": format_type}
+        )
 
         # Poll until task is done (with timeout to avoid hanging)
-        timeout = 120  # 120 seconds timeout
+        timeout = 60  # 60 seconds timeout
         start_time = time.time()
-        while True:
-            try:
-                result = client.executions.get(execution.id)
-                logger.info(f"Execution status (ID: {execution.id}): {result.status}")
-                if result.status in ['succeeded', 'failed']:
-                    break
-                if time.time() - start_time > timeout:
-                    logger.error(f"Execution timeout for ID: {execution.id}")
-                    return jsonify({"error": "Task execution timed out"}), 504
-                time.sleep(2)
-            except Exception as e:
-                logger.error(f"Failed to get execution status for ID: {execution.id}: {e}")
-                return jsonify({"error": "Failed to get execution status", "details": str(e)}), 500
+        while (result := client.executions.get(execution.id)).status not in ['succeeded', 'failed']:
+            if time.time() - start_time > timeout:
+                logger.error(f"Execution timeout for ID: {execution.id}")
+                return jsonify({"error": "Task execution timed out"}), 504
+            logger.info(f"Waiting for execution (ID: {execution.id}) - Status: {result.status}")
+            time.sleep(1)
 
         # Return the output or error
         if result.status == "succeeded":
-            try:
-                message = result.output["choices"][0]["message"]["content"]
-                logger.info(f"Execution succeeded for ID: {execution.id}")
-                return jsonify({"result": message}), 200
-            except (KeyError, IndexError) as e:
-                logger.error(f"Failed to parse execution result: {e}")
-                return jsonify({"error": "Failed to parse task result", "details": str(e)}), 500
+            message = result.output["choices"][0]["message"]["content"]
+            logger.info(f"Execution succeeded for ID: {execution.id}")
+            return jsonify({"result": message}), 200
         else:
             logger.error(f"Execution failed for ID: {execution.id}: {result.error}")
             return jsonify({"error": "Task failed", "details": result.error}), 500
 
+    except KeyError as e:
+        logger.error(f"Missing key in response: {e}")
+        return jsonify({"error": f"Missing key in response: {str(e)}"}), 500
     except Exception as e:
-        logger.exception("Unexpected error in /research endpoint")
+        logger.exception("Unexpected error occurred during /research")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
+
+if __name__ == "__main__":
+    try:
+        app.run(host="0.0.0.0", port=int(PORT))
+    except Exception as e:
+        logger.error(f"Failed to start Flask application: {e}")
+        sys.exit(1)
