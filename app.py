@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # -------------------------------
 
 # Load environment variables from .env file if it exists
-load_dotenv(override=True)
+load_dotenv()
 
 # Configure logging to output to stdout for Railway
 logging.basicConfig(
