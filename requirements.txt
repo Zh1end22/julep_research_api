@@ -1,5 +1,5 @@
 Flask==3.0.2
-julep==0.1.0
+julep==1.78.2
 python-dotenv==1.0.1
 gunicorn==21.2.0
 Werkzeug==3.0.1
