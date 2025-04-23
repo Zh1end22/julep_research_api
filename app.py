@@ -24,13 +24,12 @@ logger = logging.getLogger(__name__)
 # Get environment variables
 API_KEY = os.getenv("JULEP_API_KEY")
 ENVIRONMENT = os.getenv("JULEP_ENVIRONMENT", "production")
-PORT = int(os.getenv("PORT", 5000))
 
 if not API_KEY:
     logger.error("Missing JULEP_API_KEY in environment variables")
     raise EnvironmentError("Missing JULEP_API_KEY in environment variables.")
 
-logger.info(f"Starting application on port {PORT}")
+logger.info("Starting application...")
 
 # -------------------------------
 # Julep Client & Agent Setup with Persistence
@@ -92,7 +91,7 @@ app = Flask(__name__)
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
-    return jsonify({"status": "healthy", "port": PORT}), 200
+    return jsonify({"status": "healthy"}), 200
 
 @app.route("/research", methods=["POST"])
 def research():
@@ -157,4 +156,4 @@ def research():
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    app.run(host="0.0.0.0")
