@@ -5,14 +5,10 @@ import time
 import sys
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from julep import Julep
-from dotenv import load_dotenv
 
 # -------------------------------
 # Environment Setup
 # -------------------------------
-
-# Load environment variables from .env file if it exists
-load_dotenv()
 
 # Configure logging to output to stdout for Railway
 logging.basicConfig(
