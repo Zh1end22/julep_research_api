@@ -78,6 +78,11 @@ except Exception as e:
 
 app = Flask(__name__)
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint to verify the app is running."""
+    return jsonify({"status": "healthy", "agent_id": AGENT_ID}), 200
+
 @app.route("/research", methods=["POST"])
 def research():
     """Handle research requests using the Julep agent."""
@@ -108,36 +113,56 @@ def research():
         }
 
         # Create and run the task
-        task = client.tasks.create(agent_id=AGENT_ID, **task_definition)
-        execution = client.executions.create(
-            task_id=task.id,
-            input={"topic": topic, "format": format_type}
-        )
+        try:
+            task = client.tasks.create(agent_id=AGENT_ID, **task_definition)
+            logger.info(f"Created task with ID: {task.id}")
+        except Exception as e:
+            logger.error(f"Failed to create task: {e}")
+            return jsonify({"error": "Failed to create task", "details": str(e)}), 500
+
+        try:
+            execution = client.executions.create(
+                task_id=task.id,
+                input={"topic": topic, "format": format_type}
+            )
+            logger.info(f"Started execution with ID: {execution.id}")
+        except Exception as e:
+            logger.error(f"Failed to start execution: {e}")
+            return jsonify({"error": "Failed to start execution", "details": str(e)}), 500
 
         # Poll until task is done (with timeout to avoid hanging)
-        timeout = 60  # 60 seconds timeout
+        timeout = 120  # Increased timeout to 120 seconds for Julep tasks
         start_time = time.time()
-        while (result := client.executions.get(execution.id)).status not in ['succeeded', 'failed']:
-            if time.time() - start_time > timeout:
-                logger.error(f"Execution timeout for ID: {execution.id}")
-                return jsonify({"error": "Task execution timed out"}), 504
-            logger.info(f"Waiting for execution (ID: {execution.id}) - Status: {result.status}")
-            time.sleep(1)
+        while True:
+            try:
+                result = client.executions.get(execution.id)
+                logger.info(f"Execution status (ID: {execution.id}): {result.status}")
+                if result.status in ['succeeded', 'failed']:
+                    break
+                if time.time() - start_time > timeout:
+                    logger.error(f"Execution timeout for ID: {execution.id}")
+                    return jsonify({"error": "Task execution timed out"}), 504
+                time.sleep(2)  # Increased sleep to reduce API calls
+            except Exception as e:
+                logger.error(f"Failed to get execution status for ID: {execution.id}: {e}")
+                return jsonify({"error": "Failed to get execution status", "details": str(e)}), 500
 
         # Return the output or error
         if result.status == "succeeded":
-            message = result.output["choices"][0]["message"]["content"]
-            logger.info(f"Execution succeeded for ID: {execution.id}")
-            return jsonify({"result": message}), 200
+            try:
+                message = result.output["choices"][0]["message"]["content"]
+                logger.info(f"Execution succeeded for ID: {execution.id}")
+                return jsonify({"result": message}), 200
+            except (KeyError, IndexError) as e:
+                logger.error(f"Failed to parse execution result: {e}")
+                return jsonify({"error": "Failed to parse task result", "details": str(e)}), 500
         else:
             logger.error(f"Execution failed for ID: {execution.id}: {result.error}")
             return jsonify({"error": "Task failed", "details": result.error}), 500
 
     except KeyError as e:
-        logger.error(f"Missing key in response: {e}")
-        return jsonify({"error": f"Missing key in response: {str(e)}"}), 500
+        logger.error(f"Missing key in request body: {e}")
+        return jsonify({"error": f"Missing key in request body: {str(e)}"}), 400
     except Exception as e:
         logger.exception("Unexpected error occurred during /research")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
-
-# No app.run() block - Gunicorn will handle running the app in production
