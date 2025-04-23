@@ -15,7 +15,7 @@ COPY . ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables
-ENV PYTHONPATH=/app
+ENV JULEP_ENVIRONMENT=production
 
 # Run the web service on container startup.
 CMD ["/bin/sh", "-c", "exec gunicorn --bind 0.0.0.0:5000 app:app"] 
