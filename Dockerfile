@@ -14,7 +14,7 @@ COPY . ./
 # Install project dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH (no other env vars to avoid overriding Railway)
+# Set PYTHONPATH only (avoid overriding Railway env vars)
 ENV PYTHONPATH=/app
 
 # Run the web service on container startup, using Railway's PORT variable
