@@ -18,6 +18,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Debug: Log all environment variables to verify loading
+logger.info("Available environment variables: %s", dict(os.environ))
+
 # Get environment variables
 API_KEY = os.environ.get("JULEP_API_KEY")
 ENVIRONMENT = os.environ.get("JULEP_ENVIRONMENT", "production")
@@ -67,7 +70,6 @@ try:
 
     if not AGENT_ID:
         logger.info("Creating new agent...")
-        # Create a new agent if none exists
         agent = client.agents.create(
             name="Research Assistant",
             model="claude-3.5-haiku",
