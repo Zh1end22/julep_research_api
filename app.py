@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 # Environment Setup
 # -------------------------------
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file if it exists
+load_dotenv(override=True)
 
 # Configure logging to output to stdout for Railway
 logging.basicConfig(
@@ -23,16 +23,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Get environment variables
-API_KEY = os.getenv("JULEP_API_KEY")
-ENVIRONMENT = os.getenv("JULEP_ENVIRONMENT", "production")
-PORT = os.getenv("PORT", "5000")
+API_KEY = os.environ.get("JULEP_API_KEY")
+ENVIRONMENT = os.environ.get("JULEP_ENVIRONMENT", "production")
+PORT = os.environ.get("PORT", "5000")
 
 logger.info(f"Environment: {ENVIRONMENT}")
 logger.info(f"Port: {PORT}")
 
 if not API_KEY:
     logger.error("Missing JULEP_API_KEY in environment variables")
-    raise EnvironmentError("Missing JULEP_API_KEY in environment variables.")
+    raise EnvironmentError("Missing JULEP_API_KEY in environment variables. Please set it in Railway's environment variables.")
 
 logger.info("Starting application...")
 
