@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Research Assistant</h1>
+            <p>Get detailed research on any topic in your preferred format</p>
+        </header>
+
+        <main>
+            <form id="researchForm" class="research-form">
+                <div class="form-group">
+                    <label for="topic">Research Topic</label>
+                    <input type="text" id="topic" name="topic" required 
+                           placeholder="Enter your research topic">
+                </div>
+
+                <div class="form-group">
+                    <label for="format">Response Format</label>
+                    <select id="format" name="format" required>
+                        <option value="">Select a format</option>
+                        <option value="summary">Summary</option>
+                        <option value="bullet points">Bullet Points</option>
+                        <option value="detailed analysis">Detailed Analysis</option>
+                        <option value="Q&A">Q&A Format</option>
+                        <option value="timeline">Timeline</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="submit-btn">Research</button>
+            </form>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Researching...</p>
+            </div>
+
+            <div id="result" class="result hidden">
+                <h2>Research Results</h2>
+                <div id="resultContent" class="result-content"></div>
+            </div>
+
+            <div id="error" class="error hidden">
+                <h2>Error</h2>
+                <p id="errorMessage"></p>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
